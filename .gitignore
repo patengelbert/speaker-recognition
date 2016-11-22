@@ -3,12 +3,22 @@ test-data
 *.pyc
 output
 *.wav
+*.so
 
 bin
 obj
-src/gmm/lib
-src/gui/*.model
+speaker_recognition/gmm/lib
 
 corpus.silence-removed
 
 .vimrc.local
+.idea/
+env/
+
+*.model
+*.bin
+
+build
+dist
+
+*.egg-info
