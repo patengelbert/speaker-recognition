@@ -8,7 +8,18 @@ from ctypes import cdll, c_int, Structure, c_double, c_char_p, POINTER, pointer
 from numpy import array
 from multiprocessing import cpu_count
 
-pygmm = cdll.LoadLibrary(os.path.join(os.path.dirname(__file__), '..', '..', 'pygmm.so'))
+for num, var in enumerate(['COVTYPE_SPHEREICAL', 'COVTYPE_DIAGONAL',
+                           'COVTYPE_FULL']):
+    exec ("{} = {}".format(var, num))
+
+
+def loadLibrary():
+    pygmm = cdll.LoadLibrary(os.path.join(os.path.dirname(__file__), '..', '..', 'pygmm.so'))
+
+    pygmm.score_all.restype = c_double
+    pygmm.score_instance.restype = c_double
+
+    return pygmm
 
 
 class GMMParameter(Structure):
@@ -23,16 +34,8 @@ class GMMParameter(Structure):
                 ("verbosity", c_int)]
 
 
-# pygmm.train_model.argtypes = [c_char_p, POINTER(POINTER(c_double)), POINTER(GMMParameter)]
-pygmm.score_all.restype = c_double
-pygmm.score_instance.restype = c_double
-
-for num, var in enumerate(['COVTYPE_SPHEREICAL', 'COVTYPE_DIAGONAL',
-                           'COVTYPE_FULL']):
-    exec ("{} = {}".format(var, num))
-
-
 class GMM(object):
+    pygmm = None
     gmm = None
 
     def __init__(self, nr_mixture=10,
@@ -43,13 +46,16 @@ class GMM(object):
                  init_with_kmeans=0,
                  concurrency=cpu_count(),
                  verbosity=0):
+
+        self.pygmm = loadLibrary()
+
         for name, c_type in GMMParameter._fields_:
             if name in ['nr_instance', 'nr_dim']:
                 continue
             exec ("self.{0} = {0}".format(name))
 
         if self.gmm is None:
-            self.gmm = pygmm.new_gmm(c_int(nr_mixture), c_int(covariance_type))
+            self.gmm = self.pygmm.new_gmm(c_int(nr_mixture), c_int(covariance_type))
 
     def _fill_param_from_model_file(self, model_file):
         with open(model_file) as f:
@@ -59,12 +65,12 @@ class GMM(object):
     def load(model_file):
         gmm = GMM()
         gmm._fill_param_from_model_file(model_file)
-        gmm.gmm = pygmm.load(c_char_p(model_file))
+        gmm.gmm = self.pygmm.load(c_char_p(model_file))
         gmm.__init__()
         return gmm
 
     def dump(self, model_file):
-        pygmm.dump(self.gmm, c_char_p(model_file))
+        self.pygmm.dump(self.gmm, c_char_p(model_file))
 
     def dumps(self):
         tmp_file = "/tmp/tmp-gmm.dump"
@@ -108,29 +114,29 @@ class GMM(object):
         param = self._gen_param(X)
         param_ptr = pointer(param)
         if ubm is None:
-            pygmm.train_model(self.gmm, X_c, param_ptr)
+            self.pygmm.train_model(self.gmm, X_c, param_ptr)
         else:
             print 'training from ubm ...'
-            pygmm.train_model_from_ubm(self.gmm, ubm.gmm, X_c, param_ptr)
+            self.pygmm.train_model_from_ubm(self.gmm, ubm.gmm, X_c, param_ptr)
 
     def score(self, X):
         X_c = self._double_array_python_to_ctype(X)
         param = self._gen_param(X)
         prob = (c_double * len(X))(*([0.0] * len(X)))
-        pygmm.score_batch(self.gmm, X_c, prob, param.nr_instance, param.nr_dim, \
+        self.pygmm.score_batch(self.gmm, X_c, prob, param.nr_instance, param.nr_dim, \
                           param.concurrency)
         return array(list(prob))
 
     def score_all(self, X):
         X_c = self._double_array_python_to_ctype(X)
         param = self._gen_param(X)
-        return pygmm.score_all(self.gmm, X_c, param.nr_instance, param.nr_dim,
+        return self.pygmm.score_all(self.gmm, X_c, param.nr_instance, param.nr_dim,
                                param.concurrency)
 
     def get_dim(self):
-        return pygmm.get_dim(self.gmm)
+        return self.pygmm.get_dim(self.gmm)
 
     def get_nr_mixtures(self):
-        return pygmm.get_nr_mixtures(self.gmm)
+        return self.pygmm.get_nr_mixtures(self.gmm)
 
 # vim: foldmethod=marker
