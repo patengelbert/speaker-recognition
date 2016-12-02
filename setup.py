@@ -100,6 +100,7 @@ def find_package_data(
     return out
   
 install_reqs = parse_requirements('requirements.txt', session=PipSession())
+reqs = [str(ir.req ) for ir in install_reqs]
 
 PACKAGE = "speaker_recognition"
 NAME = "SpeakerRecognition"
@@ -133,8 +134,8 @@ setup(
         "Programming Language :: Python :: 2.7",
         "Topic :: Multimedia :: Sound/Audio :: Speech",
     ],
-    install_requires=install_reqs,
-    setup_requires=install_reqs,
+    install_requires=reqs,
+    setup_requires=reqs,
     zip_safe=False,
     ext_modules=[pygmm],
 )
