@@ -133,6 +133,7 @@ setup(
         "Topic :: Multimedia :: Sound/Audio :: Speech",
     ],
     install_requires=install_reqs,
+    setup_requires=install_reqs,
     zip_safe=False,
     ext_modules=[pygmm],
 )
