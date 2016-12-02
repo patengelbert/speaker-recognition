@@ -14,12 +14,12 @@ for num, var in enumerate(['COVTYPE_SPHEREICAL', 'COVTYPE_DIAGONAL',
 
 
 def loadLibrary():
+    global pygmm
+
     pygmm = cdll.LoadLibrary(os.path.join(os.path.dirname(__file__), '..', '..', 'pygmm.so'))
 
     pygmm.score_all.restype = c_double
     pygmm.score_instance.restype = c_double
-
-    return pygmm
 
 
 class GMMParameter(Structure):
@@ -33,9 +33,10 @@ class GMMParameter(Structure):
                 ("concurrency", c_int),
                 ("verbosity", c_int)]
 
+pygmm = None
+
 
 class GMM(object):
-    pygmm = None
     gmm = None
 
     def __init__(self, nr_mixture=10,
@@ -47,7 +48,7 @@ class GMM(object):
                  concurrency=cpu_count(),
                  verbosity=0):
 
-        self.pygmm = loadLibrary()
+        loadLibrary()
 
         for name, c_type in GMMParameter._fields_:
             if name in ['nr_instance', 'nr_dim']:
@@ -55,7 +56,7 @@ class GMM(object):
             exec ("self.{0} = {0}".format(name))
 
         if self.gmm is None:
-            self.gmm = self.pygmm.new_gmm(c_int(nr_mixture), c_int(covariance_type))
+            self.gmm = pygmm.new_gmm(c_int(nr_mixture), c_int(covariance_type))
 
     def _fill_param_from_model_file(self, model_file):
         with open(model_file) as f:
@@ -65,12 +66,12 @@ class GMM(object):
     def load(model_file):
         gmm = GMM()
         gmm._fill_param_from_model_file(model_file)
-        gmm.gmm = self.pygmm.load(c_char_p(model_file))
+        gmm.gmm = pygmm.load(c_char_p(model_file))
         gmm.__init__()
         return gmm
 
     def dump(self, model_file):
-        self.pygmm.dump(self.gmm, c_char_p(model_file))
+        pygmm.dump(self.gmm, c_char_p(model_file))
 
     def dumps(self):
         tmp_file = "/tmp/tmp-gmm.dump"
@@ -114,10 +115,10 @@ class GMM(object):
         param = self._gen_param(X)
         param_ptr = pointer(param)
         if ubm is None:
-            self.pygmm.train_model(self.gmm, X_c, param_ptr)
+            pygmm.train_model(self.gmm, X_c, param_ptr)
         else:
             print 'training from ubm ...'
-            self.pygmm.train_model_from_ubm(self.gmm, ubm.gmm, X_c, param_ptr)
+            pygmm.train_model_from_ubm(self.gmm, ubm.gmm, X_c, param_ptr)
 
     def score(self, X):
         X_c = self._double_array_python_to_ctype(X)
@@ -130,13 +131,13 @@ class GMM(object):
     def score_all(self, X):
         X_c = self._double_array_python_to_ctype(X)
         param = self._gen_param(X)
-        return self.pygmm.score_all(self.gmm, X_c, param.nr_instance, param.nr_dim,
+        return pygmm.score_all(self.gmm, X_c, param.nr_instance, param.nr_dim,
                                param.concurrency)
 
     def get_dim(self):
-        return self.pygmm.get_dim(self.gmm)
+        return pygmm.get_dim(self.gmm)
 
     def get_nr_mixtures(self):
-        return self.pygmm.get_nr_mixtures(self.gmm)
+        return pygmm.get_nr_mixtures(self.gmm)
 
 # vim: foldmethod=marker
