@@ -6,6 +6,8 @@ from fnmatch import fnmatchcase
 
 from setuptools import setup, find_packages, Extension, glob
 
+from pip.req import parse_requirements
+
 pygmmSourceDir = os.path.join(os.path.dirname(__file__), 'speaker_recognition', 'gmm', 'src')
 
 pygmm = Extension('pygmm',
@@ -95,7 +97,8 @@ def find_package_data(
                     continue
                 out.setdefault(package, []).append(prefix + name)
     return out
-
+  
+install_reqs = parse_requirements('requirements.txt')
 
 PACKAGE = "speaker_recognition"
 NAME = "SpeakerRecognition"
@@ -129,6 +132,7 @@ setup(
         "Programming Language :: Python :: 2.7",
         "Topic :: Multimedia :: Sound/Audio :: Speech",
     ],
+    install_requires=install_reqs,
     zip_safe=False,
     ext_modules=[pygmm],
 )
